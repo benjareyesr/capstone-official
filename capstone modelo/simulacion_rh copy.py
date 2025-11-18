@@ -171,7 +171,7 @@ def actualizar_estado_real(k_paso, estado_real, decisiones_t0, p_full, idx_to_zo
 def ejecutar_simulacion():
     
     # --- 1. CONFIGURACIÓN ---
-    K_TOTAL = 24     # 24 horas * 4 periodos/hora
+    K_TOTAL = 8     # 24 horas * 4 periodos/hora
     T_HORIZONTE = 4    # Mirar 1 hora hacia adelante (4 * 15 min)
     FECHA_STR = '2024-09-15'
     

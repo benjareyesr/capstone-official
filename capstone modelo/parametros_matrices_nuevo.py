@@ -8,15 +8,15 @@ import calendar
 # 1. CONSTANTES GLOBALES
 # ---------------------------------------------------------------------------
 
-NUMERO_VEHICULOS = 4
-AUTONOMIA_VEHICULO = 12
-TIEMPO_RECARGA_PERIODOS = 8 # 110 minutos, 8 periodos
+NUMERO_VEHICULOS = 300
+AUTONOMIA_VEHICULO = 350
+TIEMPO_RECARGA_PERIODOS = 2 # 110 minutos, 8 periodos
 PERIODO_SIMULACION = 15 # minutos por periodo
 BATERIA_MINIMA = 6
 ZONAS_ESTACIONES_CARGA = [87, 116, 137, 151, 128, 186]
 CAPACIDAD_MAXIMA_ESTACION = 55
 COSTO_REUBICACION_MULTIPLIER = 1.25
-PORCENTAJE_DEMANDA = 0.4 # Porcentaje de la demanda total a considerar
+PORCENTAJE_DEMANDA = 0.05 # Porcentaje de la demanda total a considerar
 
 # ---------------------------------------------------------------------------
 # 2. LÓGICA DE ZONAS Y MAPEO
