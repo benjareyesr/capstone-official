@@ -48,25 +48,14 @@ Contiene los datos necesarios para el modelo:
    ```
 
 2. **Generar la base de datos completa**:
-   ```bash
-   python bdd.py
-   ```
-   - Esto crea:
-     - `Datos/df_all_procesado.parquet` (base completa)
-     - `Datos/df_all_reducido_github.parquet` (3 días para el modelo)
-   - ⚠️ **NO MODIFICAR ESTE ARCHIVO** - Funciona perfectamente
 
-3. **Generar el pronóstico** (opcional, si necesitan actualizar):
-   - Abrir y ejecutar el notebook `Forecast+SAA.ipynb`
-   - Esto genera `lambda_zonal_OD_mat_representativo.csv`
-   - ⚠️ Requiere que exista `df_all_procesado.parquet`
 
 ### Ejecución Normal
 
 **Para correr la simulación completa**:
 ```bash
 cd "capstone modelo"
-python simulacion_rh.py
+python simulacion_rh copy.py
 ```
 
 ---
