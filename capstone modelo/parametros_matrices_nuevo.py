@@ -8,8 +8,8 @@ import calendar
 # 1. CONSTANTES GLOBALES
 # ---------------------------------------------------------------------------
 
-NUMERO_VEHICULOS = 300
-AUTONOMIA_VEHICULO = 350
+NUMERO_VEHICULOS = 4
+AUTONOMIA_VEHICULO = 12
 TIEMPO_RECARGA_PERIODOS = 2 # 110 minutos, 8 periodos
 PERIODO_SIMULACION = 15 # minutos por periodo
 BATERIA_MINIMA = 6
@@ -94,13 +94,13 @@ def cargar_demanda_pronostico(T_total, fecha_dia_str):
     print(f"Día de la semana detectado: {calendar.day_name[weekday]} (Grupo: {tipo_dia_filtro})")
     # 2. Cargar el CSV de pronóstico O-D
     base_dir = Path(__file__).resolve().parent.parent
-    ruta_csv = base_dir / 'Datos' / 'lambda_zonal_OD_mat_full.csv'
+    ruta_csv = base_dir / 'Datos' / 'lambda_zonal_OD_mat_representativo.csv'
     
     
     try:
         df_lambda = pd.read_csv(ruta_csv)
     except FileNotFoundError:
-        print(f"ERROR: No se encontró 'lambda_zonal_OD_mat.csv'")
+        print(f"ERROR: No se encontró 'lambda_zonal_OD_mat_representativo.csv'")
         raise
 
     # 3. Filtrar por el tipo de día
@@ -276,3 +276,61 @@ def cargar_parametros_modelo(T_total=4, fecha_dia_str='2024-09-15'):
     
     print("--- Carga de parámetros finalizada ---")
     return p
+
+
+
+# ... (Todo tu código anterior) ...
+
+# ---------------------------------------------------------------------------
+# BLOQUE DE VERIFICACIÓN (Solo corre si ejecutas este archivo directamente)
+# ---------------------------------------------------------------------------
+if __name__ == "__main__":
+    print("\n--- EJECUTANDO MODO DE PRUEBA DE PARÁMETROS ---")
+    
+    # Configuraciones de prueba
+    T_TEST = 96
+    FECHA_TEST = '2024-09-15'
+    
+    try:
+        # Cargar parámetros
+        p = cargar_parametros_modelo(T_total=T_TEST, fecha_dia_str=FECHA_TEST)
+        
+        # --- VERIFICACIÓN DEL PRONÓSTICO ---
+        dem_pronostico = p['Dem_Pronostico']
+        
+        total_viajes = np.sum(dem_pronostico)
+        max_valor = np.max(dem_pronostico)
+        min_valor = np.min(dem_pronostico)
+        celdas_no_cero = np.count_nonzero(dem_pronostico)
+        total_celdas = dem_pronostico.size
+        dispersidad = 1.0 - (celdas_no_cero / total_celdas)
+        
+        print("\n--- ANÁLISIS DE LA MATRIZ DE PRONÓSTICO (p['Dem_Pronostico']) ---")
+        print(f"Forma de la matriz: {dem_pronostico.shape}")
+        print(f"Suma total de viajes pronosticados: {total_viajes}")
+        print(f"Valor Máximo en una celda: {max_valor}")
+        print(f"Valor Mínimo en una celda: {min_valor}")
+        print(f"Celdas con demanda > 0: {celdas_no_cero}")
+        print(f"Dispersidad (% de ceros): {dispersidad:.4%}")
+        
+        # Verificar si son enteros
+        es_entero = np.all(np.equal(np.mod(dem_pronostico, 1), 0))
+        print(f"¿Todos los valores son enteros?: {es_entero}")
+        
+        if not es_entero:
+            print("¡ADVERTENCIA! La matriz contiene decimales. Revisa el redondeo.")
+            # Mostrar algunos ejemplos de decimales si los hay
+            indices_decimales = np.where(np.mod(dem_pronostico, 1) != 0)
+            if len(indices_decimales[0]) > 0:
+                ej_idx = (indices_decimales[0][0], indices_decimales[1][0], indices_decimales[2][0])
+                print(f"Ejemplo de valor decimal en {ej_idx}: {dem_pronostico[ej_idx]}")
+
+        # --- VERIFICACIÓN DE REALIDAD ---
+        dem_real = p['Dem']
+        print("\n--- COMPARACIÓN CON REALIDAD (p['Dem']) ---")
+        print(f"Suma total de viajes REALES (Sample 5%): {np.sum(dem_real)}")
+        
+    except Exception as e:
+        print(f"\n❌ ERROR DURANTE LA PRUEBA: {e}")
+        import traceback
+        traceback.print_exc()

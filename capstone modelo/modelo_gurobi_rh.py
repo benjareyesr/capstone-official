@@ -141,6 +141,12 @@ def resolver_paso(p_horizonte, estado_inicial):
             for t in range(T):
                 for a in A_disponibles:
                     z_carga[i, j, t, a].UB = 0
+    
+    for i in range(N):
+        for t in range(T):
+            for a in A_disponibles:
+                # No puedes reubicarte "a donde ya estás"
+                z_carga[i, i, t, a].UB = 0
 
     for i in p_horizonte['E']:
         for t in range(T): # T es T_HORIZONTE
@@ -222,6 +228,7 @@ def resolver_paso(p_horizonte, estado_inicial):
     # -------------------------
     #m.setParam('MIPGap', 0.02)
     m.optimize()
+    print(f"  [Gurobi Puro: {m.Runtime:.4f} segundos]")
 
     # -------------------------
     # EXTRACCIÓN DE RESULTADOS (SOLO t=0)

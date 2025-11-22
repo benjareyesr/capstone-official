@@ -51,3 +51,9 @@ Thumbs.db
 resultados.json
 *.log
 *.tmp
+
+# Archivos de datos pesados
+Datos/df_all_procesado.parquet
+
+# Ambiente virtual local
+.venv/

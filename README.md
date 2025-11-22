@@ -1,126 +1,169 @@
-# 🚕 Capstone - Optimización de Vehículos Autónomos en Manhattan
+# Capstone - Sistema de Optimización de Flota de Vehículos Eléctricos
 
-## 📋 Descripción
+## 📁 Estructura del Proyecto
 
-Este proyecto implementa un modelo de optimización para la gestión de una flota de vehículos autónomos en Manhattan, NYC. Utiliza horizonte rodante con Gurobi para asignar óptimamente los vehículos y maximizar la utilidad del sistema.
+### Carpeta `capstone modelo/`
+Contiene los archivos principales del modelo de optimización:
 
-## ✨ Características Principales
+- **`modelo_gurobi_rh.py`**: Modelo de optimización con Gurobi
+  - ⚠️ **NO TOCAR** - Funciona perfectamente
+  
+- **`parametros_matrices_nuevo.py`**: Parámetros del modelo
+  - ✅ **PUEDEN MODIFICAR**: Solo la sección **1. CONSTANTES GLOBALES**
+  - ⚠️ **NO TOCAR**: El resto del archivo
+  
+- **`simulacion_rh.py`**: Simulación del horizonte rodante
+  - ✅ **ESTE ES EL ARCHIVO QUE SE EJECUTA** para correr todo el sistema
 
-- **Modelo de optimización**: Horizonte rodante con Gurobi
-- **67 zonas de Manhattan**: Cobertura completa del área
-- **300 vehículos autónomos**: Flota completa (escalable)
-- **6 estaciones de carga**: Distribuidas estratégicamente
-- **Dashboard interactivo**: Visualización en tiempo real con Streamlit
+### Carpeta `Datos/`
+Contiene los datos necesarios para el modelo:
 
-## 🎯 Dashboard de Visualización
+- **`df_all_reducido_github.parquet`**: Datos de demanda real (3 días: día objetivo ± 1 día)
+  - Generado por `bdd.py`
+  - Usado por `parametros_matrices_nuevo.py` para leer la demanda REAL
+  
+- **`lambda_zonal_OD_mat_representativo.csv`**: Datos de demanda pronosticada
+  - Generado por el notebook `Forecast+SAA.ipynb`
+  - Usado por `parametros_matrices_nuevo.py` para leer la demanda PRONOSTICADA
 
-### Inicio Rápido
+- **`df_all_procesado.parquet`**: Base de datos completa (julio 2024 - junio 2025)
+  - ⚠️ **NO ESTÁ EN GITHUB** (archivo muy pesado)
+  - Se genera ejecutando `bdd.py`
+  - Necesario para ejecutar `Forecast+SAA.ipynb`
 
+### Archivos Raíz
+
+- **`bdd.py`**: Genera las bases de datos de viajes
+- **`Forecast+SAA.ipynb`**: Genera el pronóstico de demanda
+
+---
+
+## 🚀 Cómo Ejecutar el Proyecto
+
+### Primera Vez - Configuración Inicial
+
+1. **Activar el ambiente virtual** (si existe):
+   ```bash
+   source .venv/bin/activate
+   ```
+
+2. **Generar la base de datos completa**:
+   ```bash
+   python bdd.py
+   ```
+   - Esto crea:
+     - `Datos/df_all_procesado.parquet` (base completa)
+     - `Datos/df_all_reducido_github.parquet` (3 días para el modelo)
+   - ⚠️ **NO MODIFICAR ESTE ARCHIVO** - Funciona perfectamente
+
+3. **Generar el pronóstico** (opcional, si necesitan actualizar):
+   - Abrir y ejecutar el notebook `Forecast+SAA.ipynb`
+   - Esto genera `lambda_zonal_OD_mat_representativo.csv`
+   - ⚠️ Requiere que exista `df_all_procesado.parquet`
+
+### Ejecución Normal
+
+**Para correr la simulación completa**:
 ```bash
-# Instalar dependencias
-pip install -r requirements.txt
-
-# Ejecutar dashboard
 cd "capstone modelo"
-streamlit run dashboard.py
+python simulacion_rh.py
 ```
 
-### Características del Dashboard
+---
 
-- 🗺️ **Mapa interactivo** de Manhattan con las 67 zonas
-- 🚗 **Visualización de vehículos** con código de colores por estado de batería
-- 📊 **Métricas en tiempo real**: utilidad, ocupación, batería promedio
-- ⏮️ **Navegación entre periodos** con controles intuitivos
-- 📈 **Gráficos de evolución** y distribución
+## ⚙️ Configuración del Modelo
 
-## 🏗️ Estructura del Proyecto
+### Cambiar la Duración de la Simulación
 
-```
-capstone-official/
-│
-├── capstone modelo/
-│   ├── dashboard.py                    # 🆕 Dashboard interactivo
-│   ├── modelo_gurobi_rh.py            # Modelo de optimización
-│   ├── parametros_matrices_nuevo.py    # Parámetros del modelo
-│   └── simulacion_rh copy.py          # Simulación
-│
-├── Datos/
-│   ├── lambda_zonal_OD_mat_full.csv   # Matriz O-D de demanda
-│   └── df_all_reducido_github.parquet # Datos históricos
-│
-├── Distancias zonas/
-│   └── distancias_manhattan_zonas...  # Distancias entre zonas
-│
-├── requirements.txt                    # 🆕 Dependencias
-└── README.md                          # Este archivo
-```
-
-## 🚀 Instalación
-
-### Requisitos
-
-- Python 3.8+
-- Gurobi 11.0+ con licencia válida
-- 4GB RAM mínimo (8GB recomendado)
-
-### Pasos
-
-1. **Clonar repositorio**:
-   ```bash
-   git clone https://github.com/benjareyesr/capstone-official.git
-   cd capstone-official
-   ```
-
-2. **Instalar dependencias**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Verificar sistema**:
-   ```bash
-   python verificar_sistema.py
-   ```
-
-4. **Ejecutar dashboard**:
-   ```bash
-   cd "capstone modelo"
-   streamlit run dashboard.py
-   ```
-
-## 📊 Uso
-
-### Modelo de Optimización
+En `simulacion_rh.py`, **línea 215**:
 
 ```python
-import parametros_matrices_nuevo as pm
-import modelo_gurobi_rh as mrh
-
-# Cargar parámetros
-p_full = pm.cargar_parametros_modelo(T_total=8, fecha_dia_str='2024-09-15')
-
-# Resolver paso de optimización
-decisiones = mrh.resolver_paso(p_horizonte, estado_inicial)
+K_TOTAL = 8     # Modifica este valor
 ```
 
-### Dashboard Visual
+**Importante**: La simulación ejecuta `K_TOTAL - 4` periodos (no `K_TOTAL` completo) porque en cada iteración se planifican los 4 periodos siguientes.
 
-1. Abrir dashboard: `streamlit run dashboard.py`
-2. Configurar parámetros en panel lateral
-3. Ejecutar simulación
-4. Navegar entre periodos y analizar resultados
+**Ejemplos**:
+- `K_TOTAL = 8` → ejecuta **4 periodos** = **1 hora** (4 × 15 min)
+- `K_TOTAL = 20` → ejecuta **16 periodos** = **4 horas** (16 × 15 min)
+- `K_TOTAL = 96` → ejecuta **92 periodos** = **23 horas**
 
-## 📈 Resultados
+### Modificar Parámetros del Modelo
 
-El modelo optimiza:
-- ✅ **Asignación de viajes**: Maximiza ingresos por servicio
-- ✅ **Reubicación**: Minimiza costos de movimientos vacíos
-- ✅ **Gestión de batería**: Optimiza tiempos de carga
-- ✅ **Capacidad de estaciones**: Respeta límites físicos
+En `parametros_matrices_nuevo.py`, modificar solo la sección:
 
-## 🛠️ Tecnologías
+```python
+# ============================================================
+# 1. CONSTANTES GLOBALES
+# ============================================================
+```
 
-- **Python 3.8+**: Lenguaje principal
-- **Gurobi**: Motor de optimización
-- **Pandas/NumPy**: Procesamiento de datos
-- **Streamlit**: Dashboard web interactivo
-- **Plotly**: Visualizaciones interactivas
+✅ **Pueden cambiar**: Valores como número de autos, capacidad de batería, etc.  
+⚠️ **NO tocar**: El resto del archivo
+
+---
+
+## 📅 Cambiar el Día de Simulación
+
+⚠️ **IMPORTANTE**: Si necesitan cambiar el día de simulación, **contactar a Jaime Matas** para que lo haga correctamente y evitar errores en el sistema.
+
+Si Jaime cambia el día en `bdd.py`:
+1. Ejecutar `python bdd.py` para generar el nuevo `df_all_reducido_github.parquet`
+2. Este nuevo archivo corresponderá al día modificado ± 1 día
+3. La simulación usará automáticamente el nuevo día
+
+---
+
+## 📊 Flujo de Datos
+
+```
+bdd.py
+  ↓
+  ├─→ df_all_procesado.parquet (completo, no en GitHub)
+  └─→ df_all_reducido_github.parquet (3 días, en GitHub)
+
+df_all_procesado.parquet
+  ↓
+Forecast+SAA.ipynb
+  ↓
+lambda_zonal_OD_mat_representativo.csv
+
+df_all_reducido_github.parquet + lambda_zonal_OD_mat_representativo.csv
+  ↓
+parametros_matrices_nuevo.py
+  ↓
+simulacion_rh.py (← EJECUTAR ESTE)
+  ↓
+Resultados de la simulación
+```
+
+---
+
+## ⚠️ Reglas Importantes
+
+1. **NO modificar** `modelo_gurobi_rh.py` - funciona perfectamente
+2. **NO modificar** `bdd.py` - funciona perfectamente
+3. **Solo modificar** la sección "CONSTANTES GLOBALES" en `parametros_matrices_nuevo.py`
+4. **Archivo a ejecutar**: `simulacion_rh.py`
+5. **Cambios de fecha**: Solo Jaime Matas
+
+---
+
+## 🛠️ Solución de Problemas
+
+### Error: "No module named 'pandas'" (u otro módulo)
+```bash
+pip install pandas matplotlib seaborn holidays pyarrow gurobipy numpy
+```
+
+### Error: "FileNotFoundError" al ejecutar la simulación
+Asegúrate de haber ejecutado `bdd.py` primero para generar los archivos de datos.
+
+### La simulación tarda mucho
+Reduce `K_TOTAL` en la línea 215 de `simulacion_rh.py` para hacer pruebas más rápidas.
+
+---
+
+## 📧 Contacto
+
+**Para cambios de fecha o problemas técnicos**: Contactar a **Jaime Matas**

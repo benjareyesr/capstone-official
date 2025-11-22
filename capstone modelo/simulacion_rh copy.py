@@ -2,6 +2,9 @@ import parametros_matrices_nuevo as pm
 import modelo_gurobi_rh as mrh
 import random
 import copy
+import numpy as np
+import time
+
 ZONAS_MANHATTAN = [
     4, 12, 13, 24, 41, 42, 43, 45, 48, 50, 68, 74, 75, 79, 87, 88, 90, 100, 
     103, 107, 113, 114, 116, 120, 125, 127, 128, 137, 140, 141, 142, 143, 144, 
@@ -24,10 +27,6 @@ def preparar_parametros_horizonte(p_full, k_inicio, T_horizonte):
     p_horizonte = copy.deepcopy(p_full) # Copia profunda para no modificar el original
     p_horizonte['T'] = T_horizonte
     
-    # SIMPLIFICACIÓN: Usamos la demanda real como pronóstico
-    # Esto "rebana" los diccionarios/matrices
-    # Asumimos que tus parámetros son diccionarios [i][j][t] o matrices [i, j, t]
-    
     def slice_param(param_full):
         if isinstance(param_full, dict):
             # Asumimos dict [i][j][t]
@@ -41,7 +40,7 @@ def preparar_parametros_horizonte(p_full, k_inicio, T_horizonte):
                         if t_abs in param_full[i][j]:
                             param_sliced[i][j][t_rel] = param_full[i][j][t_abs]
                         else:
-                            param_sliced[i][j][t_rel] = 0 # O un valor por defecto
+                            param_sliced[i][j][t_rel] = 0.0 # O un valor por defecto
             return param_sliced
         
         elif hasattr(param_full, 'shape') and len(param_full.shape) == 3:
@@ -51,11 +50,24 @@ def preparar_parametros_horizonte(p_full, k_inicio, T_horizonte):
         else:
             # No rebanar (ej. 'N', 'A', 'Cargamax', 'd', 'mapa_llegadas')
             return param_full
+        
 
-    # Gurobi planifica usando el PRONÓSTICO
-    p_horizonte['Dem'] = slice_param(p_full['Dem'])
-    p_horizonte['Pviaje'] = slice_param(p_full['Pviaje'])
-    p_horizonte['Creub'] = slice_param(p_full['Creub'])
+    # DEMANDA REAL + PRONÓSTICO MIXTA
+    p_horizonte['Dem'] = np.zeros((p_full['N'], p_full['N'], T_horizonte), dtype=int)
+    for i in range(p_full['N']):
+        for j in range(p_full['N']):
+            # t = 0 del horizonte → demanda REAL del paso k
+            p_horizonte['Dem'][i, j, 0] = p_full['Dem'][i, j, k_inicio]
+
+            # t = 1..T_horizonte−1 → usar PRONÓSTICO
+            for t_rel in range(1, T_horizonte):
+                t_abs = k_inicio + t_rel
+                if t_abs < p_full['T']:
+                    p_horizonte['Dem'][i, j, t_rel] = p_full['Dem_Pronostico'][i, j, t_abs]
+                else:
+                    p_horizonte['Dem'][i, j, t_rel] = 0
+    p_horizonte['Pviaje'] = slice_param(p_full['Pviaje_Pronostico'])
+    p_horizonte['Creub'] = slice_param(p_full['Creub_Pronostico'])
     
     # 'mapa_llegadas' es relativo, no necesita rebanarse.
     
@@ -65,9 +77,12 @@ def actualizar_estado_real(k_paso, estado_real, decisiones_t0, p_full, idx_to_zo
     """
     Este es el "mini-simulador". Actualiza el estado real basado en las 
     decisiones de t=0.
+    Actualiza el estado real y calcula la UTILIDAD OPERATIVA .
+    Ingresos reales - Costos reales (sin penalización por demanda perdida).
     """
     
     utilidad_del_paso = 0.0
+    N_nodos = p_full['N']
     
     # 1. Actualizar autos que estaban cargando
     for a in p_full['A_indices']: # Iterar sobre TODOS los autos
@@ -84,6 +99,9 @@ def actualizar_estado_real(k_paso, estado_real, decisiones_t0, p_full, idx_to_zo
                         list(decisiones_t0.get('esp', {}).keys()) + \
                         list(decisiones_t0.get('ch', {}).keys())
     
+    # Esto es para el cálculo de 's' real
+    viajes_asignados = {}
+    
     for a in autos_disponibles:
         if estado_real['estado_carga'][a] > 0:
             continue 
@@ -91,27 +109,36 @@ def actualizar_estado_real(k_paso, estado_real, decisiones_t0, p_full, idx_to_zo
         accion_tomada = False
         
         if a in decisiones_t0['y']:
-            i, j, profit = decisiones_t0['y'][a] 
+            i, j, profit_pronosticado = decisiones_t0['y'][a] # (Ignoramos el profit pronosticado)
             gasto = p_full['d'][i, j]
             estado_real['pos'][a] = j
             estado_real['carga'][a] -= gasto
-            utilidad_del_paso += profit
+            
+            # --- SUMA INGRESO REAL ---
+            profit_real = p_full['Pviaje'][i][j][k_paso] 
+            utilidad_del_paso += profit_real
             
             zona_i = idx_to_zona_func(i)
             zona_j = idx_to_zona_func(j)
-            print(f"  > (k={k_paso}) Auto {a} SERVICIO: {zona_i}({i}) -> {zona_j}({j}). Gasto: {gasto:.1f}km. Ingreso: ${profit:.2f}. Batería: {estado_real['carga'][a]:.1f}km")
+            print(f"  > (k={k_paso}) Auto {a} SERVICIO: {zona_i}({i}) -> {zona_j}({j}). Gasto: {gasto:.1f}km. Ingreso: ${profit_real:.2f}. Batería: {estado_real['carga'][a]:.1f}km")
             accion_tomada = True
+            
+            par = (i, j)
+            viajes_asignados[par] = viajes_asignados.get(par, 0) + 1
 
         elif a in decisiones_t0['z_dem']:
-            i, j, cost = decisiones_t0['z_dem'][a] 
+            i, j, cost_pronosticado = decisiones_t0['z_dem'][a] # (Ignoramos el costo pronosticado)
             gasto = p_full['d'][i, j]
             estado_real['pos'][a] = j
             estado_real['carga'][a] -= gasto
-            utilidad_del_paso -= cost
+            
+            # --- RESTA COSTO REAL ---
+            cost_real = p_full['Creub'][i][j][k_paso]
+            utilidad_del_paso -= cost_real
             
             zona_i = idx_to_zona_func(i)
             zona_j = idx_to_zona_func(j)
-            print(f"  > (k={k_paso}) Auto {a} REUB. DEMANDA: {zona_i}({i}) -> {zona_j}({j}). Gasto: {gasto:.1f}km. Costo: ${cost:.2f}. Batería: {estado_real['carga'][a]:.1f}km")
+            print(f"  > (k={k_paso}) Auto {a} REUB. DEMANDA: {zona_i}({i}) -> {zona_j}({j}). Gasto: {gasto:.1f}km. Costo: ${cost_real:.2f}. Batería: {estado_real['carga'][a]:.1f}km")
             accion_tomada = True
 
         elif a in decisiones_t0['z_carga']:
@@ -119,7 +146,6 @@ def actualizar_estado_real(k_paso, estado_real, decisiones_t0, p_full, idx_to_zo
             gasto = p_full['d'][i, j]
             estado_real['pos'][a] = j
             estado_real['carga'][a] -= gasto
-            
             zona_i = idx_to_zona_func(i)
             zona_j = idx_to_zona_func(j)
             print(f"  > (k={k_paso}) Auto {a} REUB. CARGA: {zona_i}({i}) -> {zona_j}({j}). Gasto: {gasto:.1f}km. Batería: {estado_real['carga'][a]:.1f}km")
@@ -128,13 +154,10 @@ def actualizar_estado_real(k_paso, estado_real, decisiones_t0, p_full, idx_to_zo
         elif a in decisiones_t0['ch']:
             i = decisiones_t0['ch'][a]
             estado_real['pos'][a] = i 
-            
             periodos_restantes = p_full['Tchg'] - 1
             estado_real['estado_carga'][a] = periodos_restantes
-            
             zona_i = idx_to_zona_func(i)
             if periodos_restantes == 0:
-                estado_real['carga'][a] = p_full['Cargamax']
                 print(f"  > (k={k_paso}) Auto {a} INICIA Y TERMINA CARGA (Tchg=1) en {zona_i}({i}). Batería: {estado_real['carga'][a]:.1f}km")
             else:
                 print(f"  > (k={k_paso}) Auto {a} INICIA CARGA en {zona_i}({i}). Ocupado por {p_full['Tchg']} periodos. Batería: {estado_real['carga'][a]:.1f}km")
@@ -142,24 +165,42 @@ def actualizar_estado_real(k_paso, estado_real, decisiones_t0, p_full, idx_to_zo
             
         elif a in decisiones_t0['esp']:
             i = decisiones_t0['esp'][a]
-            estado_real['pos'][a] = i # Se queda en 'i'
-            
+            estado_real['pos'][a] = i 
             zona_i = idx_to_zona_func(i)
             print(f"  > (k={k_paso}) Auto {a} ESPERA en {zona_i}({i}). Batería: {estado_real['carga'][a]:.1f}km")
             accion_tomada = True
 
-    # 3. Restar penalización por demanda no servida
-    if 's' in decisiones_t0 and decisiones_t0['s']:
-        print(f"  --- Demanda no servida en k={k_paso} ---")
-        for (i, j), (cantidad, costo_s) in decisiones_t0['s'].items():
-            zona_i = idx_to_zona_func(i)
-            zona_j = idx_to_zona_func(j)
-            #print(f"    > De {zona_i}({i}) a {zona_j}({j}): {cantidad} viajes perdidos (Costo: ${costo_s:.2f})")
-            utilidad_del_paso -= costo_s 
+    # 3. Reportar Demanda No Servida (Solo KPI, NO afecta utilidad)
+    
+    print(f"  --- Demanda no servida REAL en k={k_paso} ---")
+    # PENALIZACION_S = 0.5 # Tu penalización
+
+    total_perdidos_paso = 0
+
+    for i in range(N_nodos):
+        for j in range(N_nodos):
+            if i == j: continue
             
-    # 4. Imprimir utilidad del paso
+            demanda_real_ij = p_full['Dem'][i, j, k_paso] 
+            
+            if demanda_real_ij > 0:
+                viajes_hechos_ij = viajes_asignados.get((i, j), 0)
+                
+                if viajes_hechos_ij < demanda_real_ij:
+                    viajes_perdidos = demanda_real_ij - viajes_hechos_ij
+                    total_perdidos_paso += viajes_perdidos
+                    
+                    # costo_s_real = viajes_perdidos * PENALIZACION_S
+                    # utilidad_del_paso -= costo_s_real # <--- ¡COMENTADO! NO RESTAMOS
+                    
+                    zona_i = idx_to_zona_func(i)
+                    zona_j = idx_to_zona_func(j)
+                    print(f"    > De {zona_i}({i}) a {zona_j}({j}): {viajes_perdidos} viajes perdidos")
+    
+    # 4. Imprimir utilidad OPERATIVA del paso
     print(f"  ---------------------------------------------------")
-    print(f"  UTILIDAD NETA DEL PASO k={k_paso}: ${utilidad_del_paso:.2f}")
+    print(f"  UTILIDAD OPERATIVA DEL PASO k={k_paso}: ${utilidad_del_paso:.2f}")
+    print(f"  TOTAL VIAJES PERDIDOS: {total_perdidos_paso}")
     print(f"  ---------------------------------------------------")
 
     return estado_real, utilidad_del_paso
@@ -202,7 +243,10 @@ def ejecutar_simulacion():
     print("Posiciones iniciales aleatorias:", estado_real['pos'])
     
     # --- 3. BUCLE PRINCIPAL DE SIMULACIÓN ---
-    for k in range(K_TOTAL - T_HORIZONTE):        
+    for k in range(K_TOTAL - T_HORIZONTE): 
+        # --- MEDIR TIEMPO ---
+        start_time = time.time()
+
         print(f"\n--- PASO DE SIMULACIÓN k = {k} ({(k*15)//60}:{(k*15)%60:02d}) ---")
         
         # 3.1. Identificar autos disponibles vs. cargando
@@ -248,12 +292,15 @@ def ejecutar_simulacion():
         
         # 3.6. Guardar y actualizar el estado real
         historial_acciones.append(decisiones_t0)
-        
-        # --- CAMBIO AQUÍ: Pasar 'idx_to_zona' y capturar utilidad ---
         estado_real, utilidad_del_paso = actualizar_estado_real(k, estado_real, decisiones_t0, p_full, idx_to_zona_func)
+        
         utilidad_total_acumulada += utilidad_del_paso
         
+        end_time = time.time()
+        duracion = end_time - start_time
+        print(f"  [Tiempo de cómputo del paso: {duracion:.2f} segundos]")
         print(f"  UTILIDAD TOTAL ACUMULADA: ${utilidad_total_acumulada:.2f}")
+        
     print(f"GANANCIA NETA TOTAL FINAL: ${utilidad_total_acumulada:.2f}")
     # Aquí puedes añadir análisis del historial_acciones o del estado_real final
 
