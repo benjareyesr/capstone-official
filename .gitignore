@@ -54,6 +54,12 @@ resultados.json
 
 # Archivos de datos pesados
 Datos/df_all_procesado.parquet
+Datos/Datos viajes/
 
 # Ambiente virtual local
 .venv/
+
+# Compressed data archives (ignorar zips grandes de viajes)
+Datos/Datos viajes.zip
+Datos/Datos viajes*.zip
+Datos/Datos viajes/*.zip
