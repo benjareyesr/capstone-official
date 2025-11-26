@@ -111,7 +111,7 @@ def calcular_ocupacion_previa(estado_real, N, T_horizonte):
                 ocupacion[nodo][t] += 1
     return ocupacion
 
-def ejecutar_simulacion(T_simulacion, T_horizonte, fecha_dia, num_vehiculos_visual=20):
+def ejecutar_simulacion(T_simulacion, T_horizonte, fecha_dia, num_vehiculos_visual=4):
     """
     Ejecuta la simulación completa y retorna historial de estados.
     num_vehiculos_visual: número de vehículos a simular (para visualización reducida)
@@ -153,7 +153,8 @@ def ejecutar_simulacion(T_simulacion, T_horizonte, fecha_dia, num_vehiculos_visu
             'pos': copy.deepcopy(estado_real['pos']),
             'carga': copy.deepcopy(estado_real['carga']),
             'estado_carga': copy.deepcopy(estado_real['estado_carga']),
-            'utilidad_acumulada': utilidad_acumulada
+            'utilidad_acumulada': utilidad_acumulada,
+            'decisiones': None  # Se llenará en el siguiente paso
         })
         
         # Preparar horizonte
@@ -176,9 +177,12 @@ def ejecutar_simulacion(T_simulacion, T_horizonte, fecha_dia, num_vehiculos_visu
         with st.spinner(f'Resolviendo periodo {k_paso+1}/{T_simulacion}...'):
             decisiones = mrh.resolver_paso(p_horizonte, estado_paso)
         
+        # Guardar decisiones en el historial
+        historial[k_paso]['decisiones'] = copy.deepcopy(decisiones)
+        
         # Actualizar estado real
         utilidad_paso = actualizar_estado_real(
-            k_paso, estado_real, decisiones, p_full, utilidad_acumulada
+            k_paso, estado_real, decisiones, p_full
         )
         utilidad_acumulada += utilidad_paso
     
@@ -188,12 +192,13 @@ def ejecutar_simulacion(T_simulacion, T_horizonte, fecha_dia, num_vehiculos_visu
         'pos': copy.deepcopy(estado_real['pos']),
         'carga': copy.deepcopy(estado_real['carga']),
         'estado_carga': copy.deepcopy(estado_real['estado_carga']),
-        'utilidad_acumulada': utilidad_acumulada
+        'utilidad_acumulada': utilidad_acumulada,
+        'decisiones': None
     })
     
     return historial, p_full
 
-def actualizar_estado_real(k_paso, estado_real, decisiones, p_full, utilidad_acumulada):
+def actualizar_estado_real(k_paso, estado_real, decisiones, p_full):
     """Actualiza el estado real basado en las decisiones y retorna utilidad del paso."""
     utilidad_paso = 0.0
     
@@ -251,7 +256,75 @@ def actualizar_estado_real(k_paso, estado_real, decisiones, p_full, utilidad_acu
 # FUNCIONES DE VISUALIZACIÓN
 # ============================================================================
 
-def crear_mapa_manhattan(estado, periodo, p_full):
+def detectar_movimientos(historial, periodo_actual):
+    """
+    Detecta los movimientos entre el periodo anterior y el actual.
+    Retorna una lista de movimientos con tipo de acción.
+    """
+    if periodo_actual == 0:
+        return []
+    
+    estado_anterior = historial[periodo_actual - 1]
+    estado_actual = historial[periodo_actual]
+    decisiones = estado_anterior.get('decisiones', {})
+    
+    movimientos = []
+    
+    # Analizar decisiones para cada auto
+    for a in estado_anterior['pos'].keys():
+        pos_anterior = estado_anterior['pos'][a]
+        pos_actual = estado_actual['pos'][a]
+        
+        # Si el auto no se movió
+        if pos_anterior == pos_actual:
+            # Verificar si empezó a cargar
+            if a in decisiones.get('ch', {}):
+                movimientos.append({
+                    'auto': a,
+                    'origen_idx': pos_anterior,
+                    'destino_idx': pos_actual,
+                    'tipo': 'charging',  # Inició carga
+                    'emoji': '🔋'
+                })
+            else:
+                # Se quedó esperando
+                movimientos.append({
+                    'auto': a,
+                    'origen_idx': pos_anterior,
+                    'destino_idx': pos_actual,
+                    'tipo': 'waiting',  # Esperó
+                    'emoji': '🛑'
+                })
+        else:
+            # El auto se movió
+            tipo_movimiento = None
+            emoji = None
+            
+            # Determinar tipo de movimiento
+            if a in decisiones.get('y', {}):
+                tipo_movimiento = 'trip'  # Viaje con demanda
+                emoji = '🚕'
+            elif a in decisiones.get('z_dem', {}):
+                tipo_movimiento = 'reposition_demand'  # Reubicación por demanda
+                emoji = '🔄'
+            elif a in decisiones.get('z_carga', {}):
+                tipo_movimiento = 'reposition_charge'  # Reubicación a estación
+                emoji = '⚡'
+            else:
+                tipo_movimiento = 'other'  # Otro tipo de movimiento
+                emoji = '➡️'
+            
+            movimientos.append({
+                'auto': a,
+                'origen_idx': pos_anterior,
+                'destino_idx': pos_actual,
+                'tipo': tipo_movimiento,
+                'emoji': emoji
+            })
+    
+    return movimientos
+
+def crear_mapa_manhattan(estado, periodo, p_full, mostrar_movimientos=False, historial=None):
     """Crea el mapa de Manhattan con los vehículos."""
     
     # Crear DataFrame para las zonas
@@ -278,6 +351,11 @@ def crear_mapa_manhattan(estado, periodo, p_full):
     # Crear figura
     fig = go.Figure()
     
+    # Detectar movimientos si está habilitado
+    movimientos = []
+    if mostrar_movimientos and historial is not None and periodo > 0:
+        movimientos = detectar_movimientos(historial, periodo)
+    
     # Agregar zonas normales
     df_normal = df_zonas[~df_zonas['es_estacion']]
     fig.add_trace(go.Scattermapbox(
@@ -303,6 +381,95 @@ def crear_mapa_manhattan(estado, periodo, p_full):
         hovertemplate='<b>Estación Zona %{text}</b><br>Vehículos: %{customdata}<extra></extra>',
         customdata=df_estaciones['num_vehiculos']
     ))
+    
+    # AGREGAR FLECHAS DE MOVIMIENTO
+    if movimientos:
+        # Agrupar movimientos por tipo para mejor visualización
+        movimientos_por_tipo = {}
+        for mov in movimientos:
+            tipo = mov['tipo']
+            if tipo not in movimientos_por_tipo:
+                movimientos_por_tipo[tipo] = []
+            movimientos_por_tipo[tipo].append(mov)
+        
+        # Colores por tipo de movimiento
+        colores_tipo = {
+            'trip': '#FFD700',           # Dorado para viajes con demanda
+            'reposition_demand': '#FF6B6B',  # Rojo para reubicación por demanda
+            'reposition_charge': '#4ECDC4',  # Turquesa para ir a cargar
+            'charging': '#9B59B6',       # Morado para cargando
+            'waiting': '#95A5A6',        # Gris para esperando
+            'other': '#3498DB'           # Azul para otros
+        }
+        
+        nombres_tipo = {
+            'trip': '🚕 Viaje con cliente',
+            'reposition_demand': '🔄 Reubicación',
+            'reposition_charge': '⚡ Ir a cargar',
+            'charging': '🔋 Cargando',
+            'waiting': '🛑 Esperando',
+            'other': '➡️ Otro movimiento'
+        }
+        
+        # Dibujar flechas para cada tipo
+        for tipo, movs in movimientos_por_tipo.items():
+            if tipo in ['waiting', 'charging']:
+                # No dibujar flechas para autos que no se mueven
+                continue
+            
+            lats_origen = []
+            lons_origen = []
+            lats_destino = []
+            lons_destino = []
+            textos = []
+            
+            for mov in movs:
+                origen_zona = INDICE_A_ZONA[mov['origen_idx']]
+                destino_zona = INDICE_A_ZONA[mov['destino_idx']]
+                
+                if origen_zona in COORDS_ZONAS and destino_zona in COORDS_ZONAS:
+                    lat_o, lon_o = COORDS_ZONAS[origen_zona]
+                    lat_d, lon_d = COORDS_ZONAS[destino_zona]
+                    
+                    # Agregar línea (origen -> destino)
+                    lats_origen.extend([lat_o, lat_d, None])
+                    lons_origen.extend([lon_o, lon_d, None])
+                    
+                    # Guardar destino para marcador de flecha
+                    lats_destino.append(lat_d)
+                    lons_destino.append(lon_d)
+                    textos.append(f"Auto {mov['auto']}: {mov['emoji']}")
+            
+            # Agregar líneas de movimiento
+            if lats_origen:
+                fig.add_trace(go.Scattermapbox(
+                    lat=lats_origen,
+                    lon=lons_origen,
+                    mode='lines',
+                    line=dict(width=3, color=colores_tipo[tipo]),
+                    name=nombres_tipo[tipo],
+                    showlegend=True,
+                    hoverinfo='skip'
+                ))
+                
+                # Agregar puntas de flecha (triángulos en destino)
+                fig.add_trace(go.Scattermapbox(
+                    lat=lats_destino,
+                    lon=lons_destino,
+                    mode='markers+text',
+                    marker=dict(
+                        size=15,
+                        color=colores_tipo[tipo],
+                        symbol='triangle'
+                    ),
+                    text=[mov['emoji'] for mov in movs if INDICE_A_ZONA[mov['destino_idx']] in COORDS_ZONAS],
+                    textposition='middle center',
+                    textfont=dict(size=10),
+                    name=f'{nombres_tipo[tipo]} (destino)',
+                    showlegend=False,
+                    hovertext=textos,
+                    hoverinfo='text'
+                ))
     
     # Agregar vehículos
     vehiculos_data = []
@@ -452,9 +619,12 @@ def main():
         st.header("⚙️ Configuración")
         
         st.subheader("Parámetros de Simulación")
-        num_vehiculos = st.slider("Número de vehículos", 5, 50, 20, 5)
-        T_simulacion = st.slider("Periodos a simular", 4, 20, 8, 1)
-        T_horizonte = st.slider("Horizonte de optimización", 2, 6, 4, 1)
+        num_vehiculos = st.slider("Número de vehículos", 4, 20, 4, 1,
+                                   help="⚠️ Con pocos vehículos el modelo puede ser infactible")
+        T_simulacion = st.slider("Periodos a simular", 2, 12, 4, 1,
+                                  help="Cada periodo = 15 minutos")
+        T_horizonte = st.slider("Horizonte de optimización", 2, 6, 4, 1,
+                                 help="Periodos hacia adelante que considera el modelo")
         
         fecha_dia = st.date_input(
             "Fecha de simulación",
@@ -463,8 +633,22 @@ def main():
         
         st.markdown("---")
         
+        st.subheader("🔍 Visualización")
+        mostrar_movimientos = st.checkbox(
+            "Mostrar movimientos",
+            value=True,
+            help="Muestra flechas con el movimiento de los autos al cambiar de periodo"
+        )
+        
+        st.markdown("---")
+        
+        st.info("💡 **Recomendación:** Usa 50+ vehículos para evitar problemas de infactibilidad")
+        
+        st.markdown("---")
+        
         if st.button("▶️ Ejecutar Simulación", type="primary"):
             st.session_state['ejecutar'] = True
+            st.session_state['mostrar_movimientos'] = mostrar_movimientos
     
     # Ejecutar simulación
     if 'historial' not in st.session_state or st.session_state.get('ejecutar', False):
@@ -487,9 +671,10 @@ def main():
         col1, col2, col3 = st.columns([1, 3, 1])
         
         with col1:
-            if st.button("⬅️ Anterior"):
+            if st.button("⬅️ Anterior", key="btn_anterior"):
                 if st.session_state['periodo_actual'] > 0:
                     st.session_state['periodo_actual'] -= 1
+                    st.rerun()
         
         with col2:
             periodo_actual = st.slider(
@@ -499,12 +684,14 @@ def main():
                 st.session_state.get('periodo_actual', 0),
                 key='slider_periodo'
             )
-            st.session_state['periodo_actual'] = periodo_actual
+            if periodo_actual != st.session_state['periodo_actual']:
+                st.session_state['periodo_actual'] = periodo_actual
         
         with col3:
-            if st.button("Siguiente ➡️"):
+            if st.button("Siguiente ➡️", key="btn_siguiente"):
                 if st.session_state['periodo_actual'] < len(historial) - 1:
                     st.session_state['periodo_actual'] += 1
+                    st.rerun()
         
         # Mostrar métricas
         metricas = crear_metricas_panel(historial, periodo_actual)
@@ -526,7 +713,16 @@ def main():
         
         with col_mapa:
             estado = historial[periodo_actual]
-            fig_mapa = crear_mapa_manhattan(estado, periodo_actual, p_full)
+            # Determinar si mostrar movimientos
+            debe_mostrar_movimientos = mostrar_movimientos if 'mostrar_movimientos' in locals() else st.session_state.get('mostrar_movimientos', False)
+            
+            fig_mapa = crear_mapa_manhattan(
+                estado, 
+                periodo_actual, 
+                p_full, 
+                mostrar_movimientos=debe_mostrar_movimientos,
+                historial=historial
+            )
             st.plotly_chart(fig_mapa, use_container_width=True)
         
         with col_graficos:
@@ -574,6 +770,31 @@ def main():
             st.write(f"**Número de zonas:** {N_ZONAS}")
             st.write(f"**Estaciones de carga:** {len(ESTACIONES_CARGA)}")
             st.write(f"**Zonas con estaciones:** {', '.join(map(str, ESTACIONES_CARGA))}")
+        
+        # Leyenda de movimientos
+        with st.expander("🗺️ Leyenda de Movimientos"):
+            st.markdown("""
+            **Tipos de Movimientos:**
+            
+            - 🚕 **Viaje con cliente** - El vehículo se movió para satisfacer demanda (viaje pagado)
+            - 🔄 **Reubicación** - El vehículo se movió para posicionarse cerca de demanda anticipada
+            - ⚡ **Ir a cargar** - El vehículo se movió hacia una estación de carga
+            - 🔋 **Cargando** - El vehículo está en proceso de carga (no se mueve)
+            - 🛑 **Esperando** - El vehículo permaneció en la misma zona sin acción
+            
+            **Colores de Batería:**
+            
+            - 🟢 **Verde:** Batería alta (≥50%)
+            - 🟡 **Amarillo:** Batería media (20-50%)
+            - 🔴 **Rojo:** Batería baja (<20%)
+            - 🟣 **Morado:** Vehículo cargando
+            
+            **Cómo usar:**
+            
+            1. Usa los botones ⬅️ Anterior / Siguiente ➡️ para navegar entre periodos
+            2. Al cambiar de periodo, las flechas mostrarán el movimiento de cada vehículo
+            3. Activa/desactiva "Mostrar movimientos" en el panel lateral
+            """)
     
     else:
         st.info("👈 Configura los parámetros en el panel lateral y presiona 'Ejecutar Simulación'")

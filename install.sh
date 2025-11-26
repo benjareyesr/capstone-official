@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Script de instalación para el Dashboard de Vehículos Autónomos
+# Script de instalación para el modelo de optimización
 # Uso: ./install.sh
 
 echo "=========================================="
-echo "  Instalación Dashboard - Capstone NYC"
+echo "  Instalación Modelo - Capstone NYC"
 echo "=========================================="
 echo ""
 
@@ -99,18 +99,7 @@ echo ""
 
 if [ $FALTAN_ARCHIVOS -eq 1 ]; then
     echo "⚠️  Algunos archivos de datos no se encontraron"
-    echo "   El dashboard podría no funcionar correctamente"
-    echo ""
-fi
-
-# Prueba rápida
-read -p "¿Ejecutar prueba rápida del sistema? (s/n) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Ss]$ ]]; then
-    echo "🧪 Ejecutando prueba..."
-    cd "capstone modelo"
-    python3 test_dashboard.py
-    cd ..
+    echo "   El modelo podría no ejecutarse correctamente"
     echo ""
 fi
 
@@ -119,9 +108,12 @@ echo "=========================================="
 echo "  ✅ INSTALACIÓN COMPLETADA"
 echo "=========================================="
 echo ""
-echo "Para ejecutar el dashboard:"
+echo "Para ejecutar la simulación base:"
 echo "  cd 'capstone modelo'"
-echo "  streamlit run dashboard.py"
+echo "  python simulacion_rh.py"
+echo ""
+echo "Para abrir el nuevo dashboard (beta):"
+echo "  python dash_app/app.py"
 echo ""
 echo "Si creaste un entorno virtual, actívalo primero:"
 if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
@@ -130,5 +122,5 @@ else
     echo "  source venv/bin/activate"
 fi
 echo ""
-echo "¡Disfruta el dashboard! 🚕"
+echo "Consulta README.2.md para más detalles y próximos pasos."
 echo ""
