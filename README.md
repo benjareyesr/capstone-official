@@ -98,17 +98,6 @@ En `parametros_matrices_nuevo.py`, modificar solo la sección:
 
 ---
 
-## 📅 Cambiar el Día de Simulación
-
-⚠️ **IMPORTANTE**: Si necesitan cambiar el día de simulación, **contactar a Jaime Matas** para que lo haga correctamente y evitar errores en el sistema.
-
-Si Jaime cambia el día en `bdd.py`:
-1. Ejecutar `python bdd.py` para generar el nuevo `df_all_reducido_github.parquet`
-2. Este nuevo archivo corresponderá al día modificado ± 1 día
-3. La simulación usará automáticamente el nuevo día
-
----
-
 ## 📊 Flujo de Datos
 
 ```
@@ -134,16 +123,6 @@ Resultados de la simulación
 
 ---
 
-## ⚠️ Reglas Importantes
-
-1. **NO modificar** `modelo_gurobi_rh.py` - funciona perfectamente
-2. **NO modificar** `bdd.py` - funciona perfectamente
-3. **Solo modificar** la sección "CONSTANTES GLOBALES" en `parametros_matrices_nuevo.py`
-4. **Archivo a ejecutar**: `simulacion_rh.py`
-5. **Cambios de fecha**: Solo Jaime Matas
-
----
-
 ## 🛠️ Solución de Problemas
 
 ### Error: "No module named 'pandas'" (u otro módulo)
@@ -156,9 +135,3 @@ Asegúrate de haber ejecutado `bdd.py` primero para generar los archivos de dato
 
 ### La simulación tarda mucho
 Reduce `K_TOTAL` en la línea 215 de `simulacion_rh.py` para hacer pruebas más rápidas.
-
----
-
-## 📧 Contacto
-
-**Para cambios de fecha o problemas técnicos**: Contactar a **Jaime Matas**

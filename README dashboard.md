@@ -1,19 +1,3 @@
-# 🚕 Capstone - Optimización de Vehículos Autónomos en Manhattan
-
-## 📋 Descripción
-
-Este proyecto implementa un modelo de optimización para la gestión de una flota de vehículos autónomos en Manhattan, NYC. Utiliza horizonte rodante con Gurobi para asignar óptimamente los vehículos y maximizar la utilidad del sistema.
-
-## ✨ Características Principales
-
-- **Modelo de optimización**: Horizonte rodante con Gurobi
-- **67 zonas de Manhattan**: Cobertura completa del área
-- **300 vehículos autónomos**: Flota completa (escalable)
-- **6 estaciones de carga**: Distribuidas estratégicamente
-- **Nuevo dashboard Dash (beta)**: KPIs, acciones y demanda no servida
-
-> 🛠️ El dashboard previo basado en Streamlit fue retirado. El reemplazo actual es `dash_app/app.py` (Dash + Plotly) y continuará evolucionando.
-
 ## 🎯 Dashboard Dash (beta)
 
 ```bash
