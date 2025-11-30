@@ -8,10 +8,10 @@ import calendar
 # 1. CONSTANTES GLOBALES
 # ---------------------------------------------------------------------------
 
-NUMERO_VEHICULOS = 200
+NUMERO_VEHICULOS = 300
 MAX_NUMERO_VEHICULOS = 300
 AUTONOMIA_VEHICULO = 350
-TIEMPO_RECARGA_PERIODOS = 2 # 110 minutos, 8 periodos
+TIEMPO_RECARGA_PERIODOS = 8 # 110 minutos, 8 periodos
 PERIODO_SIMULACION = 15 # minutos por periodo
 BATERIA_MINIMA = 6
 ZONAS_ESTACIONES_CARGA = [87, 116, 137, 151, 128, 186]
@@ -286,8 +286,6 @@ def cargar_parametros_modelo(T_total=4, fecha_dia_str='2024-09-15', numero_vehic
     return p
 
 
-
-# ... (Todo tu código anterior) ...
 
 # ---------------------------------------------------------------------------
 # BLOQUE DE VERIFICACIÓN (Solo corre si ejecutas este archivo directamente)

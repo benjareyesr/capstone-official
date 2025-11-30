@@ -226,7 +226,6 @@ def resolver_paso(p_horizonte, estado_inicial):
     # -------------------------
     # OPTIMIZAR
     # -------------------------
-    #m.setParam('MIPGap', 0.02)
     m.optimize()
     print(f"  [Gurobi Puro: {m.Runtime:.4f} segundos]")
 

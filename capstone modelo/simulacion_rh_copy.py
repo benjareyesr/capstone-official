@@ -173,7 +173,6 @@ def actualizar_estado_real(k_paso, estado_real, decisiones_t0, p_full, idx_to_zo
     # 3. Reportar Demanda No Servida (Solo KPI, NO afecta utilidad)
     
     print(f"  --- Demanda no servida REAL en k={k_paso} ---")
-    # PENALIZACION_S = 0.5 # Tu penalización
 
     total_perdidos_paso = 0
 
