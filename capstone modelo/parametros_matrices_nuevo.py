@@ -8,8 +8,9 @@ import calendar
 # 1. CONSTANTES GLOBALES
 # ---------------------------------------------------------------------------
 
-NUMERO_VEHICULOS = 4
-AUTONOMIA_VEHICULO = 12
+NUMERO_VEHICULOS = 200
+MAX_NUMERO_VEHICULOS = 300
+AUTONOMIA_VEHICULO = 350
 TIEMPO_RECARGA_PERIODOS = 2 # 110 minutos, 8 periodos
 PERIODO_SIMULACION = 15 # minutos por periodo
 BATERIA_MINIMA = 6
@@ -133,7 +134,7 @@ def cargar_demanda_pronostico(T_total, fecha_dia_str):
     print("Carga de pronóstico completada.")
     return matriz_dem_pronostico
 
-def cargar_parametros_modelo(T_total=4, fecha_dia_str='2024-09-15'):
+def cargar_parametros_modelo(T_total=4, fecha_dia_str='2024-09-15', numero_vehiculos=None):
     # Carga y pre-calcula TODOS los parámetros para el modelo Gurobi.
     print("Iniciando carga de parámetros...")
 
@@ -144,10 +145,17 @@ def cargar_parametros_modelo(T_total=4, fecha_dia_str='2024-09-15'):
     # 2. Crear diccionario de parámetros p
     p = {}
 
+    if numero_vehiculos is None:
+        num_autos = NUMERO_VEHICULOS
+    else:
+        if not (1 <= int(numero_vehiculos) <= MAX_NUMERO_VEHICULOS):
+            raise ValueError(f"numero_vehiculos debe estar entre 1 y {MAX_NUMERO_VEHICULOS}")
+        num_autos = int(numero_vehiculos)
+
     # 3. Nombres de parámetros más simples para que sea más fácil hacer el modelo
     p['T'] = T_total
     p['N'] = N_ZONAS
-    p['A'] = NUMERO_VEHICULOS
+    p['A'] = num_autos
     p['Tchg'] = TIEMPO_RECARGA_PERIODOS
     p['E_min'] = BATERIA_MINIMA
     p['Cargamax'] = AUTONOMIA_VEHICULO
