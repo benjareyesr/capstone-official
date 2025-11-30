@@ -1,4 +1,7 @@
-# Capstone - Sistema de Optimización de Flota de Vehículos Eléctricos
+# Capstone - Distribución y asignación óptima de vehículos autónomos en NYC
+
+## Grupo 24
+### Profesor guía: Jorge Vera, Ayudante guía: Catalina Ojeda
 
 ## 📁 Estructura del Proyecto
 
