@@ -55,7 +55,13 @@ Contiene los datos necesarios para el modelo:
 **Para correr la simulación completa**:
 ```bash
 cd "capstone modelo"
-python simulacion_rh copy.py
+python simulacion_rh.py
+```
+
+**Para abrir el nuevo dashboard (Dash + Plotly)**:
+```bash
+pip install -r requirements.txt
+python dash_app/app.py
 ```
 
 ---

@@ -10,39 +10,39 @@ Este proyecto implementa un modelo de optimización para la gestión de una flot
 - **67 zonas de Manhattan**: Cobertura completa del área
 - **300 vehículos autónomos**: Flota completa (escalable)
 - **6 estaciones de carga**: Distribuidas estratégicamente
-- **Dashboard interactivo**: Visualización en tiempo real con Streamlit
+- **Nuevo dashboard Dash (beta)**: KPIs, acciones y demanda no servida
 
-## 🎯 Dashboard de Visualización
+> 🛠️ El dashboard previo basado en Streamlit fue retirado. El reemplazo actual es `dash_app/app.py` (Dash + Plotly) y continuará evolucionando.
 
-### Inicio Rápido
+## 🎯 Dashboard Dash (beta)
 
 ```bash
-# Instalar dependencias
 pip install -r requirements.txt
-
-# Ejecutar dashboard
-cd "capstone modelo"
-streamlit run dashboard.py
+python dash_app/app.py
 ```
 
-### Características del Dashboard
+- Configura `K_TOTAL`, `T_HORIZONTE` y la fecha base desde la UI.
+- El botón **“Ejecutar simulación”** ejecuta Gurobi (se requiere licencia activa).
+- Gráficos disponibles:
+   - Utilidad acumulada por periodo.
+   - Barras apiladas con la distribución de acciones.
+   - Heatmap de demanda no servida agregada.
+   - Tabla con el detalle de vehículos para el periodo seleccionado.
 
-- 🗺️ **Mapa interactivo** de Manhattan con las 67 zonas
-- 🚗 **Visualización de vehículos** con código de colores por estado de batería
-- 📊 **Métricas en tiempo real**: utilidad, ocupación, batería promedio
-- ⏮️ **Navegación entre periodos** con controles intuitivos
-- 📈 **Gráficos de evolución** y distribución
+> ⚠️ La primera versión prioriza KPIs tabulares/gráficos. El mapa geoespacial se añadirá cuando contemos con geometrías oficiales de las zonas NYC TLC.
 
 ## 🏗️ Estructura del Proyecto
 
 ```
 capstone-official/
 │
+├── dash_app/
+│   └── app.py                       # Nuevo dashboard (Dash + Plotly)
+│
 ├── capstone modelo/
-│   ├── dashboard.py                    # 🆕 Dashboard interactivo
 │   ├── modelo_gurobi_rh.py            # Modelo de optimización
 │   ├── parametros_matrices_nuevo.py    # Parámetros del modelo
-│   └── simulacion_rh copy.py          # Simulación
+│   └── simulacion_rh.py               # Simulación principal
 │
 ├── Datos/
 │   ├── lambda_zonal_OD_mat_full.csv   # Matriz O-D de demanda
@@ -76,15 +76,9 @@ capstone-official/
    pip install -r requirements.txt
    ```
 
-3. **Verificar sistema**:
+3. **Verificar sistema** (opcional, si deseas validar dependencias locales):
    ```bash
    python verificar_sistema.py
-   ```
-
-4. **Ejecutar dashboard**:
-   ```bash
-   cd "capstone modelo"
-   streamlit run dashboard.py
    ```
 
 ## 📊 Uso
@@ -102,12 +96,9 @@ p_full = pm.cargar_parametros_modelo(T_total=8, fecha_dia_str='2024-09-15')
 decisiones = mrh.resolver_paso(p_horizonte, estado_inicial)
 ```
 
-### Dashboard Visual
+### Visualizaciones
 
-1. Abrir dashboard: `streamlit run dashboard.py`
-2. Configurar parámetros en panel lateral
-3. Ejecutar simulación
-4. Navegar entre periodos y analizar resultados
+Puedes explorar los resultados desde `dash_app/app.py` o exportar los datos de `simulacion_rh.py` para analizarlos en notebooks (Plotly, pandas, Power BI, etc.).
 
 ## 📈 Resultados
 
@@ -122,5 +113,4 @@ El modelo optimiza:
 - **Python 3.8+**: Lenguaje principal
 - **Gurobi**: Motor de optimización
 - **Pandas/NumPy**: Procesamiento de datos
-- **Streamlit**: Dashboard web interactivo
 - **Plotly**: Visualizaciones interactivas
